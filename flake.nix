@@ -30,9 +30,13 @@
         inherit packageFactory toolFactory;
         nixpkgsLib = nixpkgs.lib;
       };
+      darwinModules = {
+        darwin-nixos-vm = ./modules/darwin-nixos-vm;
+      };
     in
     {
       inherit
+        darwinModules
         overlays
         systems
         serviceModules
