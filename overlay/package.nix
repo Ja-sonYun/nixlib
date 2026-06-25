@@ -1,6 +1,6 @@
 { packageFactory, ... }:
 
-final: prev:
+final: _prev:
 
 packageFactory {
   pkgs = final;

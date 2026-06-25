@@ -1,4 +1,4 @@
-{ ... }:
+_:
 
 {
   mapSubdirsWithFile =
@@ -10,18 +10,13 @@
     }:
     let
       entries = builtins.readDir dir;
-      names = builtins.filter (name: entries.${name} == "directory") (
-        builtins.attrNames entries
-      );
+      names = builtins.filter (name: entries.${name} == "directory") (builtins.attrNames entries);
       requireFile =
         name:
         let
           path = dir + "/${name}/${fileName}";
         in
-        if builtins.pathExists path then
-          path
-        else
-          throw (missingMessage name);
+        if builtins.pathExists path then path else throw (missingMessage name);
     in
     builtins.listToAttrs (
       map (

@@ -1,7 +1,9 @@
 args:
 
 let
-  toolArgs = (args // { inherit tool; });
+  toolArgs = args // {
+    inherit tool;
+  };
   tool = {
     attr = import ./attr.nix toolArgs;
     text = import ./text.nix toolArgs;

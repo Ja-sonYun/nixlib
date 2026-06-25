@@ -23,7 +23,7 @@ in
     package = mkPackageOption pkgs "frp" { };
 
     settings = mkOption {
-      type = tomlFormat.type;
+      inherit (tomlFormat) type;
       default = { };
       example = literalExpression ''
         {
@@ -111,7 +111,7 @@ in
           after = [ "network.target" ] ++ agenixDependencies;
           wants = agenixDependencies;
           path = with pkgs; [ replace-secret ];
-          restartTriggers = secretSettings.restartTriggers;
+          inherit (secretSettings) restartTriggers;
 
           serviceConfig = {
             DynamicUser = true;

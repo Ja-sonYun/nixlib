@@ -19,7 +19,7 @@ let
   renderAction =
     rule:
     let
-      action = rule.action;
+      inherit (rule) action;
       message = action.message or "Command blocked by guard rule ${rule.name or "unnamed"}.";
     in
     if action.type == "block" then

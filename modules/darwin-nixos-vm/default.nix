@@ -1,14 +1,28 @@
-{ config
-, lib
-, pkgs
-, cacheDir
-, ...
+{
+  config,
+  lib,
+  pkgs,
+  cacheDir,
+  ...
 }:
 
 let
   inherit (lib)
-    attrValues filter filterAttrs flatten mapAttrsToList mkDefault mkEnableOption
-    mkMerge mkOption nameValuePair optionalString optionals types unique;
+    attrValues
+    filter
+    filterAttrs
+    flatten
+    mapAttrsToList
+    mkDefault
+    mkEnableOption
+    mkMerge
+    mkOption
+    nameValuePair
+    optionalString
+    optionals
+    types
+    unique
+    ;
   cfg = config.services.nixosContainer;
 
   serviceOptions = [
@@ -32,53 +46,67 @@ let
 
   profileConfig = service: removeAttrs service serviceOptions;
 
-  instanceConfig = id: removeAttrs cfg.instance.${id} [ "stateVersion" "cpus" "memory" "volumes" ];
+  instanceConfig =
+    id:
+    removeAttrs cfg.instance.${id} [
+      "stateVersion"
+      "cpus"
+      "memory"
+      "volumes"
+    ];
 
-  mkGuest = id: services:
+  mkGuest =
+    id: services:
     import "${pkgs.path}/nixos" {
       system = "aarch64-linux";
       configuration = { modulesPath, ... }: {
         imports = [
           (modulesPath + "/virtualisation/docker-image.nix")
-        ] ++ cfg.modules;
+        ]
+        ++ cfg.modules;
 
-        config = mkMerge ([
-          {
-            system.stateVersion = mkDefault cfg.instance.${id}.stateVersion;
-            networking.hostName = mkDefault "mac-services-${id}";
-            networking.resolvconf.enable = mkDefault false;
-            networking.firewall.allowedTCPPorts =
-              unique (flatten (map (s: s._vm.allowedTCPPorts) (attrValues services)));
-            networking.firewall.allowedUDPPorts =
-              unique (flatten (map (s: s._vm.allowedUDPPorts) (attrValues services)));
-          }
-          (instanceConfig id)
-        ] ++ mapAttrsToList
-          (name: service: {
+        config = mkMerge (
+          [
+            {
+              system.stateVersion = mkDefault cfg.instance.${id}.stateVersion;
+              networking.hostName = mkDefault "mac-services-${id}";
+              networking.resolvconf.enable = mkDefault false;
+              networking.firewall.allowedTCPPorts = unique (
+                flatten (map (s: s._vm.allowedTCPPorts) (attrValues services))
+              );
+              networking.firewall.allowedUDPPorts = unique (
+                flatten (map (s: s._vm.allowedUDPPorts) (attrValues services))
+              );
+            }
+            (instanceConfig id)
+          ]
+          ++ mapAttrsToList (name: service: {
             services.${name} = (profileConfig service) // {
               enable = true;
             };
-          })
-          services);
+          }) services
+        );
       };
     };
 
-  mkImage = id: services:
+  mkImage =
+    id: services:
     let
       guest = mkGuest id services;
-      rootfs = pkgs.runCommand "mac-services-${id}-rootfs"
-        {
-          nativeBuildInputs = [
-            pkgs.gnutar
-            pkgs.xz
-          ];
-        }
-        ''
-          mkdir -p "$out"
-          for tarball in ${guest.config.system.build.tarball}/tarball/*.tar.xz; do
-            tar --delay-directory-restore -xJf "$tarball" -C "$out" --no-same-owner
-          done
-        '';
+      rootfs =
+        pkgs.runCommand "mac-services-${id}-rootfs"
+          {
+            nativeBuildInputs = [
+              pkgs.gnutar
+              pkgs.xz
+            ];
+          }
+          ''
+            mkdir -p "$out"
+            for tarball in ${guest.config.system.build.tarball}/tarball/*.tar.xz; do
+              tar --delay-directory-restore -xJf "$tarball" -C "$out" --no-same-owner
+            done
+          '';
       rawImage = pkgs.dockerTools.buildImage {
         name = "mac-services-${id}";
         tag = "latest";
@@ -110,7 +138,8 @@ let
 
   mkShellArrayItems = args: lib.concatMapStrings (arg: "          ${lib.escapeShellArg arg}\n") args;
 
-  mkRunArgs = id: services: guest:
+  mkRunArgs =
+    id: services: guest:
     let
       inst = cfg.instance.${id};
       tcpPorts = guest.config.networking.firewall.allowedTCPPorts;
@@ -128,41 +157,53 @@ let
       "--tmpfs"
       "/tmp"
     ]
-    ++ optionals (inst.cpus != null) [ "--cpus" (toString inst.cpus) ]
-    ++ optionals (inst.memory != null) [ "--memory" inst.memory ]
-    ++ flatten (mapAttrsToList
-      (name: _: [
+    ++ optionals (inst.cpus != null) [
+      "--cpus"
+      (toString inst.cpus)
+    ]
+    ++ optionals (inst.memory != null) [
+      "--memory"
+      inst.memory
+    ]
+    ++ flatten (
+      mapAttrsToList (name: _: [
         "--volume"
         "${name}-data:/var/lib/${name}"
-      ])
-      services)
-    ++ flatten (map
-      (volId:
-        let def = cfg.volume.${volId}; in
+      ]) services
+    )
+    ++ flatten (
+      map (
+        volId:
+        let
+          def = cfg.volume.${volId};
+        in
         [
           "--volume"
           "${if def.hostPath != null then def.hostPath else volId}:${def.mountPoint}"
-        ])
-      (unique inst.volumes))
-    ++ flatten (map
-      (port: [
+        ]
+      ) (unique inst.volumes)
+    )
+    ++ flatten (
+      map (port: [
         "--publish"
         "127.0.0.1:${toString port}:${toString port}/tcp"
-      ])
-      tcpPorts)
-    ++ flatten (map
-      (port: [
+      ]) tcpPorts
+    )
+    ++ flatten (
+      map (port: [
         "--publish"
         "127.0.0.1:${toString port}:${toString port}/udp"
-      ])
-      udpPorts);
+      ]) udpPorts
+    );
 
-  mkAgent = id: services:
+  mkAgent =
+    id: services:
     let
       guest = mkGuest id services;
       image = mkImage id services;
       imageRef = "mac-services-${id}:latest";
-      volumes = (mapAttrsToList (name: _: "${name}-data") services)
+      volumes =
+        (mapAttrsToList (name: _: "${name}-data") services)
         ++ (filter (volId: cfg.volume.${volId}.hostPath == null) (unique cfg.instance.${id}.volumes));
     in
     nameValuePair "appleContainer-${id}" {
@@ -272,33 +313,35 @@ in
     default = { };
     type = types.submodule {
       # every key except `instance` is a service
-      freeformType = types.attrsOf (types.submodule {
-        freeformType = types.attrsOf types.anything;
-        options = {
-          enable = mkEnableOption "NixOS service on Apple Container";
-          _vm = mkOption {
-            default = { };
-            type = types.submodule {
-              options = {
-                instanceId = mkOption {
-                  type = types.str;
-                  default = "default";
-                };
+      freeformType = types.attrsOf (
+        types.submodule {
+          freeformType = types.attrsOf types.anything;
+          options = {
+            enable = mkEnableOption "NixOS service on Apple Container";
+            _vm = mkOption {
+              default = { };
+              type = types.submodule {
+                options = {
+                  instanceId = mkOption {
+                    type = types.str;
+                    default = "default";
+                  };
 
-                allowedTCPPorts = mkOption {
-                  type = types.listOf types.port;
-                  default = [ ];
-                };
+                  allowedTCPPorts = mkOption {
+                    type = types.listOf types.port;
+                    default = [ ];
+                  };
 
-                allowedUDPPorts = mkOption {
-                  type = types.listOf types.port;
-                  default = [ ];
+                  allowedUDPPorts = mkOption {
+                    type = types.listOf types.port;
+                    default = [ ];
+                  };
                 };
               };
             };
           };
-        };
-      });
+        }
+      );
       options = {
         modules = mkOption {
           type = types.listOf types.deferredModule;
@@ -309,69 +352,71 @@ in
         volume = mkOption {
           default = { };
           description = "Volume definitions, referenced by id from instance.<id>.volumes.";
-          type = types.attrsOf (types.submodule {
-            options = {
-              mountPoint = mkOption {
-                type = types.str;
-                description = "Path inside the guest where the volume is mounted.";
+          type = types.attrsOf (
+            types.submodule {
+              options = {
+                mountPoint = mkOption {
+                  type = types.str;
+                  description = "Path inside the guest where the volume is mounted.";
+                };
+                hostPath = mkOption {
+                  type = types.nullOr types.str;
+                  default = null;
+                  description = "If set, bind-mount this host path instead of a named volume.";
+                };
               };
-              hostPath = mkOption {
-                type = types.nullOr types.str;
-                default = null;
-                description = "If set, bind-mount this host path instead of a named volume.";
-              };
-            };
-          });
+            }
+          );
         };
 
         instance = mkOption {
           default = { };
-          type = types.attrsOf (types.submodule {
-            freeformType = types.attrsOf types.anything;
-            options = {
-              stateVersion = mkOption {
-                type = types.str;
-                default = "26.05";
-              };
+          type = types.attrsOf (
+            types.submodule {
+              freeformType = types.attrsOf types.anything;
+              options = {
+                stateVersion = mkOption {
+                  type = types.str;
+                  default = "26.05";
+                };
 
-              # container-level options for Apple `container run`
-              cpus = mkOption {
-                type = types.nullOr types.int;
-                default = null;
-              };
+                # container-level options for Apple `container run`
+                cpus = mkOption {
+                  type = types.nullOr types.int;
+                  default = null;
+                };
 
-              memory = mkOption {
-                type = types.nullOr types.str;
-                default = null;
-              };
+                memory = mkOption {
+                  type = types.nullOr types.str;
+                  default = null;
+                };
 
-              volumes = mkOption {
-                type = types.listOf types.str;
-                default = [ ];
-                description = "Volume ids (from services.nixosContainer.volume) to mount in this instance.";
+                volumes = mkOption {
+                  type = types.listOf types.str;
+                  default = [ ];
+                  description = "Volume ids (from services.nixosContainer.volume) to mount in this instance.";
+                };
               };
-            };
-          });
+            }
+          );
         };
       };
     };
   };
 
   config = {
-    assertions = lib.optionals (enabledServices != { }) (map
-      (id: {
+    assertions = lib.optionals (enabledServices != { }) (
+      map (id: {
         assertion = cfg.instance ? ${id};
-        message = "services.nixosContainer: instance \"${id}\" is referenced by a service "
+        message =
+          "services.nixosContainer: instance \"${id}\" is referenced by a service "
           + "but not declared in services.nixosContainer.instance"
           + (optionalString (id == "default") " (set _vm.instanceId or declare instance.default)");
-      })
-      usedIds);
+      }) usedIds
+    );
 
     launchd.user.agents = builtins.listToAttrs (
-      [ mkReaper ]
-      ++ map
-        (id: mkAgent id (servicesFor id))
-        (filter (id: cfg.instance ? ${id}) usedIds)
+      [ mkReaper ] ++ map (id: mkAgent id (servicesFor id)) (filter (id: cfg.instance ? ${id}) usedIds)
     );
   };
 }

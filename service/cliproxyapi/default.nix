@@ -36,7 +36,7 @@ in
     };
 
     settings = mkOption {
-      type = yamlFormat.type;
+      inherit (yamlFormat) type;
       default = { };
       example = literalExpression ''
         {
@@ -109,7 +109,7 @@ in
           after = [ "network-online.target" ] ++ agenixDependencies;
           wants = [ "network-online.target" ] ++ agenixDependencies;
           path = with pkgs; [ replace-secret ];
-          restartTriggers = secretSettings.restartTriggers;
+          inherit (secretSettings) restartTriggers;
 
           serviceConfig = {
             DynamicUser = true;

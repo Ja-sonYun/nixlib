@@ -1,10 +1,10 @@
 { toolFactory, ... }:
 
-final: prev:
+_final: prev:
 
 {
   tool = toolFactory {
     pkgs = prev;
-    lib = prev.lib;
+    inherit (prev) lib;
   };
 }

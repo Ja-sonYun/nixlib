@@ -19,12 +19,7 @@ let
     && builtins.attrNames value == [ "_secret" ]
     && (builtins.isString value._secret || builtins.isPath value._secret);
 
-  showPath =
-    path:
-    if path == [ ] then
-      "<root>"
-    else
-      concatStringsSep "." path;
+  showPath = path: if path == [ ] then "<root>" else concatStringsSep "." path;
 
   collectInvalid =
     path: value:
@@ -90,9 +85,7 @@ in
 
   replacementScript =
     runtimeConfigFile:
-    concatMapStringsSep "\n" (
-      path: ''
-        ${pkgs.replace-secret}/bin/replace-secret ${escapeShellArg (secretPlaceholder path)} "$CREDENTIALS_DIRECTORY/${secretName path}" ${escapeShellArg runtimeConfigFile}
-      ''
-    ) secretPaths;
+    concatMapStringsSep "\n" (path: ''
+      ${pkgs.replace-secret}/bin/replace-secret ${escapeShellArg (secretPlaceholder path)} "$CREDENTIALS_DIRECTORY/${secretName path}" ${escapeShellArg runtimeConfigFile}
+    '') secretPaths;
 }
