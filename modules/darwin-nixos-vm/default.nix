@@ -18,6 +18,8 @@ let
 
   serviceAttrs = removeAttrs cfg [
     "instance"
+    "modules"
+    "volume"
   ];
 
   enabledServices = filterAttrs (_: service: service.enable) serviceAttrs;
@@ -30,7 +32,7 @@ let
 
   profileConfig = service: removeAttrs service serviceOptions;
 
-  instanceConfig = id: removeAttrs cfg.instance.${id} [ "stateVersion" "cpus" "memory" ];
+  instanceConfig = id: removeAttrs cfg.instance.${id} [ "stateVersion" "cpus" "memory" "volumes" ];
 
   mkGuest = id: services:
     import "${pkgs.path}/nixos" {
@@ -38,7 +40,7 @@ let
       configuration = { modulesPath, ... }: {
         imports = [
           (modulesPath + "/virtualisation/docker-image.nix")
-        ];
+        ] ++ cfg.modules;
 
         config = mkMerge ([
           {
@@ -135,6 +137,14 @@ let
       ])
       services)
     ++ flatten (map
+      (volId:
+        let def = cfg.volume.${volId}; in
+        [
+          "--volume"
+          "${if def.hostPath != null then def.hostPath else volId}:${def.mountPoint}"
+        ])
+      (unique inst.volumes))
+    ++ flatten (map
       (port: [
         "--publish"
         "127.0.0.1:${toString port}:${toString port}/tcp"
@@ -152,7 +162,8 @@ let
       guest = mkGuest id services;
       image = mkImage id services;
       imageRef = "mac-services-${id}:latest";
-      volumes = mapAttrsToList (name: _: "${name}-data") services;
+      volumes = (mapAttrsToList (name: _: "${name}-data") services)
+        ++ (filter (volId: cfg.volume.${volId}.hostPath == null) (unique cfg.instance.${id}.volumes));
     in
     nameValuePair "appleContainer-${id}" {
       serviceConfig = {
@@ -289,6 +300,30 @@ in
         };
       });
       options = {
+        modules = mkOption {
+          type = types.listOf types.deferredModule;
+          default = [ ];
+          description = "Extra NixOS modules imported into every container guest.";
+        };
+
+        volume = mkOption {
+          default = { };
+          description = "Volume definitions, referenced by id from instance.<id>.volumes.";
+          type = types.attrsOf (types.submodule {
+            options = {
+              mountPoint = mkOption {
+                type = types.str;
+                description = "Path inside the guest where the volume is mounted.";
+              };
+              hostPath = mkOption {
+                type = types.nullOr types.str;
+                default = null;
+                description = "If set, bind-mount this host path instead of a named volume.";
+              };
+            };
+          });
+        };
+
         instance = mkOption {
           default = { };
           type = types.attrsOf (types.submodule {
@@ -308,6 +343,12 @@ in
               memory = mkOption {
                 type = types.nullOr types.str;
                 default = null;
+              };
+
+              volumes = mkOption {
+                type = types.listOf types.str;
+                default = [ ];
+                description = "Volume ids (from services.nixosContainer.volume) to mount in this instance.";
               };
             };
           });
