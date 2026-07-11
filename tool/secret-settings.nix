@@ -15,9 +15,7 @@ let
 
   isValidSecret =
     value:
-    isSecret value
-    && builtins.attrNames value == [ "_secret" ]
-    && (builtins.isString value._secret || builtins.isPath value._secret);
+    isSecret value && builtins.attrNames value == [ "_secret" ] && builtins.isString value._secret;
 
   showPath = path: if path == [ ] then "<root>" else concatStringsSep "." path;
 
