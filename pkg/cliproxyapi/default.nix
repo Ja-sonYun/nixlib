@@ -15,7 +15,7 @@ buildGo126Module rec {
     hash = "sha256-tHeKABLcb+L3DylQf8EUql4YoEbj8d92A1TfuhkCLR8=";
   };
 
-  vendorHash = "sha256-CCeec8HQrMBy105I0DMoYCIt4uEyBkRoAxtcjEnguPQ=";
+  vendorHash = "sha256-MmIrOmsPs/7IZsiSwMj4JKxP2wkgkfLINPEMtRxy3O8=";
   proxyVendor = true;
 
   subPackages = [ "cmd/server" ];
