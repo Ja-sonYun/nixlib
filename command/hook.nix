@@ -89,25 +89,13 @@ let
             ''
           else
             ''
-              command_hook_flag_args=()
-              command_hook_flag_index=-1
-              command_hook_index=0
-
-              for command_hook_arg in "''${command_hook_args[@]}"; do
-                  if [ "$command_hook_arg" = ${quote flag} ]; then
-                      if [ "$command_hook_flag_index" -eq -1 ]; then
-                          command_hook_flag_index=$command_hook_index
-                      fi
-                  else
-                      command_hook_flag_args+=("$command_hook_arg")
-                  fi
-                  command_hook_index=$((command_hook_index + 1))
-              done
-
-              if [ "$command_hook_flag_index" -ge 0 ]; then
-                  command_hook_args=("''${command_hook_flag_args[@]}")
+              if [ "''${command_hook_args[command_hook_path_index]-}" = ${quote flag} ]; then
+                  command_hook_args=(
+                      "''${command_hook_args[@]:0:command_hook_path_index}"
+                      "''${command_hook_args[@]:command_hook_path_index+1}"
+                  )
                   ${renderHelp hook}
-                  COMMAND_HOOK_FLAG_INDEX="$command_hook_flag_index" \
+                  COMMAND_HOOK_FLAG_INDEX="$command_hook_path_index" \
                     command_hook_run_${toString i} "''${command_hook_args[@]}"
                   exit $?
               fi
