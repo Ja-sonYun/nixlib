@@ -1,42 +1,43 @@
-{ lib, ... }:
+{ lib, tool, ... }:
 
 with lib;
 
+let
+  environmentValue =
+    value:
+    if tool.secretValue.isSecret value then
+      if tool.secretValue.isValidSecret value then
+        "$(cat -- \"${value._secret}\" 2>/dev/null || echo '')"
+      else
+        throw "A secret value must contain only a string _secret path."
+    else
+      toString value;
+in
 {
   /**
-    Helper function to convert an environment attribute set into shell export commands.
+    Render a shell-expanded value for options such as home.sessionVariables.
+    Secret paths are shell-expanded and read at runtime; unreadable files expand
+    to an empty string.
+    Invalid _secret forms are rejected. The result is not shell-quoted; use
+    shellExports when emitting export commands.
+  */
+  inherit environmentValue;
 
-    # Input
-
-    - `environment`: An attribute set of environment variables.
-
-    # Output
-
-    A string of shell commands that export each environment variable.
-
-    # Example usage
-
-    ```
-    let
-      env = {
-        VAR1 = "value1";
-        VAR2 = "value2";
-      };
-    in
-      shellExports env
-    ```
-
-    This would produce the following string:
-
-    ```
-    export VAR1='value1'
-    export VAR2='value2'
-    ```
+  /**
+    Generate shell exports for literal values and runtime _secret file reads.
   */
   shellExports =
     environment:
     concatStringsSep "\n" (
-      mapAttrsToList (name: value: "export ${name}=${escapeShellArg (toString value)}") environment
+      mapAttrsToList (
+        name: value:
+        "export ${name}=${
+          if tool.secretValue.isSecret value then
+            ''"${environmentValue value}"''
+          else
+            escapeShellArg (environmentValue value)
+        }"
+      ) environment
     );
 
 }

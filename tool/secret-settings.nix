@@ -1,4 +1,9 @@
-{ lib, pkgs, ... }:
+{
+  lib,
+  pkgs,
+  tool,
+  ...
+}:
 
 with lib;
 
@@ -11,11 +16,7 @@ let
 
   secretPlaceholder = path: "${secretPrefix}${builtins.hashString "sha256" (pathToString path)}@";
 
-  isSecret = value: builtins.isAttrs value && value ? _secret;
-
-  isValidSecret =
-    value:
-    isSecret value && builtins.attrNames value == [ "_secret" ] && builtins.isString value._secret;
+  inherit (tool.secretValue) isSecret isValidSecret;
 
   showPath = path: if path == [ ] then "<root>" else concatStringsSep "." path;
 

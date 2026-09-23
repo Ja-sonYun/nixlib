@@ -131,7 +131,7 @@
               test "$(${commandHookPackage}/bin/example config set key value)" = "long <key> <value>"
               test "$(${commandHookPackage}/bin/example config key value)" = "short <key> <value>"
               test "$(${commandHookPackage}/bin/example --config x=y mcp add server)" = "anywhere <--config> <x=y> <server>"
-              test "$(${commandHookPackage}/bin/example commit first -g second)" = "flag <1> <first> <second>"
+              test "$(${commandHookPackage}/bin/example commit -g first second)" = "flag <0> <first> <second>"
               test "$(${commandHookPackage}/bin/example commit first second)" = "original <commit> <first> <second>"
               test "$(${commandHookPackage}/bin/example delegate value)" = "original <from-hook> <value>"
               test "$(${commandHookPackage}/bin/example custom --help)" = "custom help"
