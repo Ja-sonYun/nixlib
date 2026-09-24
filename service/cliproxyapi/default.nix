@@ -28,6 +28,8 @@ let
   runtimeConfigFile = "/run/cliproxyapi/config.yaml";
 in
 {
+  disabledModules = [ "services/misc/cliproxyapi.nix" ];
+
   options.services.cliproxyapi = {
     enable = mkEnableOption "CLIProxyAPI server";
 
