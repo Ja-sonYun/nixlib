@@ -6,16 +6,16 @@
 
 buildGo126Module rec {
   pname = "cliproxyapi";
-  version = "8.0.24";
+  version = "8.0.64";
 
   src = fetchFromGitHub {
     owner = "router-for-me";
     repo = "CLIProxyAPI";
     rev = "v${version}";
-    hash = "sha256-YqyywNAgA7/CAadZuESPIqDMhqxw0pj9RDNPCK4uq0I=";
+    hash = "sha256-X/G9jGelmB0RUnc8Eyw5QdXmBVywz2610TknILzkV8c=";
   };
 
-  vendorHash = "sha256-ju7dRQIDvz/oHP5Y6y0hklEBNPzwrtWqSQ7cr51jwTY=";
+  vendorHash = "sha256-Oppsr3O/iwpfMbW8f1KsC1OEV+hI7kZI4TFN+k37Rvs=";
   proxyVendor = true;
 
   subPackages = [ "cmd/server" ];
@@ -24,7 +24,7 @@ buildGo126Module rec {
     "-s"
     "-w"
     "-X main.Version=${version}"
-    "-X main.Commit=091ff27f31285ec4fd1dd5823b44f7f51fb8f48b"
+    "-X main.Commit=905637daa3f2fae4dcacf50164dac15ad43ed5c2"
     "-X main.BuildDate=unknown"
   ];
 
