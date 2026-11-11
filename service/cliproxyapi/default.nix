@@ -30,6 +30,8 @@ in
 {
   disabledModules = [ "services/misc/cliproxyapi.nix" ];
 
+  meta.doc = ./cliproxyapi.md;
+
   options.services.cliproxyapi = {
     enable = mkEnableOption "CLIProxyAPI server";
 
