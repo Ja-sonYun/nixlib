@@ -31,12 +31,13 @@ in
     concatStringsSep "\n" (
       mapAttrsToList (
         name: value:
-        "export ${name}=${
-          if tool.secretValue.isSecret value then
-            ''"${environmentValue value}"''
-          else
-            escapeShellArg (environmentValue value)
-        }"
+        if tool.secretValue.isSecret value then
+          ''
+            ${name}="${environmentValue value}"
+            export ${name}
+          ''
+        else
+          "export ${name}=${escapeShellArg (environmentValue value)}"
       ) environment
     );
 
