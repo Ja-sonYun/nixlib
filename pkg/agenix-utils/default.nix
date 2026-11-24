@@ -7,6 +7,7 @@
   bash,
   bc,
   coreutils,
+  flock,
   gnused,
 }:
 
@@ -16,6 +17,7 @@ let
     bash
     bc
     coreutils
+    flock
     gnused
   ];
 in
