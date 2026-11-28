@@ -83,14 +83,14 @@ in
 
   config = mkIf cfg.enable (
     let
-      secretSettings = tool.secretSettings settings;
-      agenixDependencies = secretSettings.agenixDependencies { inherit config options; };
+      inherit (tool) secret;
+      agenixDependencies = secret.agenixDependencies settings { inherit config options; };
     in
     {
       assertions = [
         {
-          assertion = secretSettings.invalidSecretPaths == [ ];
-          message = "services.cliproxyapi.settings contains invalid _secret values at: ${concatStringsSep ", " secretSettings.invalidSecretPaths}.";
+          assertion = secret.invalidPaths settings == [ ];
+          message = "services.cliproxyapi.settings contains invalid _secret values at: ${concatStringsSep ", " (secret.invalidPaths settings)}.";
         }
       ];
 
@@ -98,36 +98,27 @@ in
 
       systemd.services.cliproxyapi =
         let
-          configFile = yamlFormat.generate "cliproxyapi.yaml" secretSettings.value;
           commandArgs = cfg.extraArgs ++ [
             "--config"
             runtimeConfigFile
           ];
-          startPreScript = pkgs.writeShellScript "cliproxyapi-start-pre" (
-            secretSettings.replacementScript runtimeConfigFile
-          );
         in
         {
           description = "CLIProxyAPI server";
           wantedBy = [ "multi-user.target" ];
           after = [ "network-online.target" ] ++ agenixDependencies;
           wants = [ "network-online.target" ] ++ agenixDependencies;
-          path = with pkgs; [ replace-secret ];
-          inherit (secretSettings) restartTriggers;
 
           serviceConfig = {
             DynamicUser = true;
-            ExecStartPre = [
-              "${pkgs.coreutils}/bin/install -m 600 ${configFile} ${runtimeConfigFile}"
-            ]
-            ++ optional (secretSettings.secretPaths != [ ]) startPreScript;
+            ExecStartPre = secret.installConfig settings "yaml" runtimeConfigFile;
             ExecStart = "${cfg.package}/bin/cliproxyapi ${escapeShellArgs commandArgs}";
             Restart = "on-failure";
             RuntimeDirectory = "cliproxyapi";
             RuntimeDirectoryMode = "0700";
             StateDirectory = "cliproxyapi";
             StateDirectoryMode = "0700";
-            LoadCredential = secretSettings.credentials;
+            LoadCredential = secret.credentials settings;
             NoNewPrivileges = true;
             PrivateTmp = true;
             PrivateDevices = true;

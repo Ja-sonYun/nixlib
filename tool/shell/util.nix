@@ -1,17 +1,52 @@
-{ lib, tool, ... }:
+{
+  lib,
+  pkgs,
+  tool,
+  ...
+}:
 
 with lib;
 
 let
-  environmentValue =
-    value:
-    if tool.secretValue.isSecret value then
-      if tool.secretValue.isValidSecret value then
-        "$(cat -- \"${value._secret}\" 2>/dev/null || echo '')"
-      else
-        throw "A secret value must contain only a string _secret path."
+  secretValue =
+    mode: value:
+    if tool.secret.isValidSecret value then
+      "$(${tool.secret.readCommand { inherit mode; } value._secret})"
     else
-      toString value;
+      throw "A secret value must contain only a string _secret path.";
+
+  environmentValue =
+    value: if tool.secret.isSecret value then secretValue "empty" value else toString value;
+
+  shellExportsWith =
+    {
+      mode ? "empty",
+      keepExisting ? false,
+    }:
+    environment:
+    concatStringsSep "\n" (
+      mapAttrsToList (
+        name: value:
+        let
+          export =
+            if tool.secret.isSecret value then
+              ''
+                ${name}="${secretValue mode value}" || exit "$?"
+                export ${name}
+              ''
+            else
+              "export ${name}=${escapeShellArg (toString value)}";
+        in
+        if keepExisting then
+          ''
+            if [ -z "''${${name}+x}" ]; then
+              ${export}
+            fi
+          ''
+        else
+          export
+      ) environment
+    );
 in
 {
   /**
@@ -21,24 +56,31 @@ in
     Invalid _secret forms are rejected. The result is not shell-quoted; use
     shellExports when emitting export commands.
   */
-  inherit environmentValue;
+  inherit environmentValue shellExportsWith;
 
   /**
     Generate shell exports for literal values and runtime _secret file reads.
   */
-  shellExports =
-    environment:
-    concatStringsSep "\n" (
-      mapAttrsToList (
-        name: value:
-        if tool.secretValue.isSecret value then
-          ''
-            ${name}="${environmentValue value}"
-            export ${name}
-          ''
-        else
-          "export ${name}=${escapeShellArg (environmentValue value)}"
-      ) environment
-    );
+  shellExports = shellExportsWith { };
 
+  wrapSecretEnv =
+    {
+      name,
+      command,
+      args ? [ ],
+      env ? { },
+    }:
+    let
+      secrets = filterAttrs (_: tool.secret.isSecret) env;
+    in
+    optionalAttrs (secrets != { }) {
+      command = toString (
+        pkgs.writeShellScript "${name}-env-wrapper" ''
+          ${shellExportsWith { mode = "wait"; } secrets}
+          exec ${escapeShellArgs ([ command ] ++ args)} "$@"
+        ''
+      );
+      args = [ ];
+      env = filterAttrs (_: value: !tool.secret.isSecret value) env;
+    };
 }

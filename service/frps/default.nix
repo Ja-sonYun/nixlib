@@ -63,8 +63,8 @@ in
 
   config = mkIf cfg.enable (
     let
-      secretSettings = tool.secretSettings cfg.settings;
-      agenixDependencies = secretSettings.agenixDependencies { inherit config options; };
+      inherit (tool) secret;
+      agenixDependencies = secret.agenixDependencies cfg.settings { inherit config options; };
 
       bindPort = cfg.settings.bindPort or null;
       hasBindPort = builtins.isInt bindPort;
@@ -82,8 +82,8 @@ in
           message = "services.frps.openFirewall requires services.frps.settings.bindPort to be an integer.";
         }
         {
-          assertion = secretSettings.invalidSecretPaths == [ ];
-          message = "services.frps.settings contains invalid _secret values at: ${concatStringsSep ", " secretSettings.invalidSecretPaths}.";
+          assertion = secret.invalidPaths cfg.settings == [ ];
+          message = "services.frps.settings contains invalid _secret values at: ${concatStringsSep ", " (secret.invalidPaths cfg.settings)}.";
         }
       ];
 
@@ -94,36 +94,27 @@ in
 
       systemd.services.frps =
         let
-          configFile = tomlFormat.generate "frps.toml" secretSettings.value;
           commandArgs = [
             "--strict_config"
             "-c"
             runtimeConfigFile
           ]
           ++ cfg.extraArgs;
-          startPreScript = pkgs.writeShellScript "frps-start-pre" (
-            secretSettings.replacementScript runtimeConfigFile
-          );
         in
         {
           description = "FRP server";
           wantedBy = [ "multi-user.target" ];
           after = [ "network.target" ] ++ agenixDependencies;
           wants = agenixDependencies;
-          path = with pkgs; [ replace-secret ];
-          inherit (secretSettings) restartTriggers;
 
           serviceConfig = {
             DynamicUser = true;
-            ExecStartPre = [
-              "${pkgs.coreutils}/bin/install -m 600 ${configFile} ${runtimeConfigFile}"
-            ]
-            ++ optional (secretSettings.secretPaths != [ ]) startPreScript;
+            ExecStartPre = secret.installConfig cfg.settings "toml" runtimeConfigFile;
             ExecStart = "${cfg.package}/bin/frps ${escapeShellArgs commandArgs}";
             Restart = "on-failure";
             RuntimeDirectory = "frps";
             RuntimeDirectoryMode = "0700";
-            LoadCredential = secretSettings.credentials;
+            LoadCredential = secret.credentials cfg.settings;
             NoNewPrivileges = true;
             PrivateTmp = true;
             PrivateDevices = true;

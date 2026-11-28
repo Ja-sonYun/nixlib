@@ -3,7 +3,7 @@
 let
   pathTool = import ../tool/path.nix { };
   wrapService =
-    service:
+    path:
     {
       config,
       lib,
@@ -11,15 +11,16 @@ let
       ...
     }@args:
     let
+      service = import path;
       tool = toolFactory args;
     in
-    service (args // { inherit tool; });
+    { _file = path; } // service (args // { inherit tool; });
 
   service = pathTool.mapSubdirsWithFile {
     dir = ./.;
     fileName = "default.nix";
     missingMessage = name: "service ${name} is missing default.nix";
-    value = _: path: wrapService (import path);
+    value = _: wrapService;
   };
 in
 service
