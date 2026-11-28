@@ -13,8 +13,6 @@ let
 
   secretName = path: "secret-${builtins.hashString "sha256" path}";
 
-  secretPlaceholder = path: "@nix-secret-${builtins.hashString "sha256" path}@";
-
   showPath = path: if path == [ ] then "<root>" else concatStringsSep "." path;
 
   collectInvalid =
@@ -42,7 +40,7 @@ let
   replaceSecrets =
     value:
     if isValidSecret value then
-      secretPlaceholder value._secret
+      { _secret = "$CREDENTIALS_DIRECTORY/${secretName value._secret}"; }
     else if builtins.isAttrs value then
       mapAttrs (_: replaceSecrets) value
     else if builtins.isList value then
@@ -75,9 +73,23 @@ let
     printf "secret file '%s' is missing or empty\n" "$path" >&2
     exit 1
   '';
+
+  resolver = pkgs.writeShellScriptBin "resolve-secrets" ''
+    exec ${
+      pkgs.python3.withPackages (ps: [
+        ps.tomlkit
+        ps.pyyaml
+      ])
+    }/bin/python3 ${./resolve-secrets.py} "$@"
+  '';
 in
 {
-  inherit isSecret isValidSecret paths;
+  inherit
+    isSecret
+    isValidSecret
+    paths
+    resolver
+    ;
 
   readCommand =
     {
@@ -110,14 +122,9 @@ in
   installConfig =
     settings: format: destination:
     let
-      configFile = (pkgs.formats.${format} { }).generate (baseNameOf destination) (
-        replaceSecrets settings
+      template = pkgs.writeText "${baseNameOf destination}.json" (
+        builtins.toJSON (replaceSecrets settings)
       );
     in
-    pkgs.writeShellScript "install-${baseNameOf destination}" ''
-      ${pkgs.coreutils}/bin/install -m 600 ${configFile} ${escapeShellArg destination}
-      ${concatMapStrings (path: ''
-        ${pkgs.replace-secret}/bin/replace-secret ${escapeShellArg (secretPlaceholder path)} "$CREDENTIALS_DIRECTORY/${secretName path}" ${escapeShellArg destination}
-      '') (paths settings)}
-    '';
+    "${getExe resolver} json ${format} ${template} ${escapeShellArg destination}";
 }
